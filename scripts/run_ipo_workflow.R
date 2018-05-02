@@ -269,17 +269,22 @@ prepare.wft4galaxy.files <- function(path.to.zipfile, study.output.folder, assay
 
 run.wft4galaxy <- function(study.output.folder, assay, galaxy.key, galaxy.url) {
   assay.name <- gsub("\\.txt$", "", assay)
+  # FOR TESTING ON MINIKUBE: Because on kubernetes the path "home" is mounted as "hosthome" in the VM
   current.folder <- getwd()
+  # current.folder <- gsub("home", "hosthome", getwd())
   setwd(study.output.folder)
+  # FOR TESTING ON MINIKUBE: Because on kubernetes the path "home" is mounted as "hosthome" in the VM
   working.folder <- getwd()
+  # working.folder <- gsub("home", "hosthome", getwd())
   command <- paste(
-    "docker run -i -v ", current.folder, "/python/:/python -v ", working.folder, ":/data_input/ -v ", working.folder, "/", assay.name, ":/data_output/ ",
+    "docker run --rm -v ", current.folder, "/python/:/python -v ", working.folder, ":/data_input/ -v ", working.folder, ":/data_output/ ",
     "-e PYTHONPATH=/python -e GALAXY_URL=", galaxy.url, " -e GALAXY_API_KEY=", galaxy.key, " ",
     "crs4/wft4galaxy:latest runtest ", debug, " --server ", galaxy.url, " --api-key ", galaxy.key, " -f /data_input/workflow.yaml ",
     "-o /data_output/results ", logger, " --disable-cleanup --output-format text",
     sep = ""
   )
   system(command)
+  # setwd(gsub("hosthome", "home", current.folder))
   setwd(current.folder)
 }
 
