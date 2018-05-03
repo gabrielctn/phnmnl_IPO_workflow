@@ -213,7 +213,7 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
   # TODO Change the method retrieving blank samples, with a more "official way" then "grep"
   #      - To improve in the future, when new specifications of ISA-Tab make it easier to detect blanks
   blank.files <- grep("blan(k|c)", files, ignore.case = TRUE, value = TRUE)
-  # Keep only QCs or pool files if possible since they are more representative of the experimental study
+  # Keep only QCs and/or pool files if possible since they are more representative of the experimental study
   representative.files <- grep("(QC)|(pool)", files, ignore.case = TRUE, value = TRUE)
   if (length(representative.files) != 0) { # If pools or QC, keep only them
     file.copy(representative.files, assay.folder)
@@ -221,13 +221,14 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
       file.copy(blank.files, assay.folder)
     }
   } else {
-    # To reduce processing time, keep 5% but at least 10 raw data files of the assay
-    if (ceiling((5 * length(files)) / 100) < 10) {
-      files <- sample(files, 10)
+    # To reduce processing time, keep 5% but at least 10 raw data files of the assay ()
+    if(length(files) < 10){
+      file.copy(files, assay.folder)
+    } else if (ceiling((5 * length(files)) / 100) < 10) {
+      file.copy(sample(files, 10), assay.folder)
     } else {
-      files <- sample(files, ceiling((5 * length(files)) / 100))
+      file.copy(sample(files, ceiling((5 * length(files)) / 100)), assay.folder)
     }
-    file.copy(files, assay.folder)
   }
   main.dir <- getwd()
   setwd(study.output.folder)
