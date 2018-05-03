@@ -281,7 +281,7 @@ run.wft4galaxy <- function(study.output.folder, assay, galaxy.key, galaxy.url) {
     "docker run --rm -v ", current.folder, "/python/:/python -v ", working.folder, ":/data_input/ -v ", working.folder, ":/data_output/ ",
     "-e PYTHONPATH=/python -e GALAXY_URL=", galaxy.url, " -e GALAXY_API_KEY=", galaxy.key, " ",
     "crs4/wft4galaxy:latest runtest ", debug, " --server ", galaxy.url, " --api-key ", galaxy.key, " -f /data_input/workflow.yaml ",
-    "-o /data_output/results ", logger, " --disable-cleanup --output-format text",
+    "-o /data_output/", assay.name, "/results ", logger, " --disable-cleanup",
     sep = ""
   )
   system(command)
