@@ -195,7 +195,6 @@ check.matrix.file <- function(matrix.file) {
 # QCs or pools if any (+blanks), or other mzfiles otherwise (5% but at least 10 mzfiles).
 prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, study.output.folder) {
   path.to.files <- paste(study.path, study.name, sep = "/")
-  dir.create(assay.folder)
   # get the mz files associated to the current assay
   files <- paste(path.to.files, data["assay.files"][[assay]][["Raw Spectral Data File"]], sep = "/")
   # Some studies have zipped mz files
@@ -222,7 +221,7 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
     }
   } else {
     # To reduce processing time, keep 5% but at least 10 raw data files of the assay ()
-    if(length(files) < 10){
+    if (length(files) < 10) {
       file.copy(files, assay.folder)
     } else if (ceiling((5 * length(files)) / 100) < 10) {
       file.copy(sample(files, 10), assay.folder)
@@ -430,14 +429,20 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
   for (assay in assays) {
     is.valid.ms <- check.assay.file(paste(path, assay, sep = "/"))
     if (!is.valid.ms) {
-      write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"\",", "\"", paste("Error 4: ", assay, " is no MS study.", sep = ""), "\",", "\"", "", "\"", sep = ""), file = log.file, append = TRUE)
+      write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"\",", "\"",
+                  paste("Error 4: ", assay, " is no MS study.", sep = ""), "\",", "\"", "", "\"", sep = ""),
+            file = log.file, append = TRUE)
       next
     }
     assay.folder <- paste(study.output.folder, gsub("\\.txt$", "", assay), sep = "/")
+    dir.create(assay.folder)
+
     # sapply(1:length(real.factors), function(factor.index) {
     #   success <- ""
     #   if (real.factors[factor.index] == "-1") {
-    #     write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"", paste("Error 4: Did not find column in s_file: ", factors[factor.index], sep = ""), "\",", "\"", "", "\"", sep = ""), file = log.file, append = TRUE)
+    #     write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"",
+    #                 paste("Error 4: Did not find column in s_file: ", factors[factor.index], sep = ""), "\",", "\"", "", "\"", sep = ""), 
+    #           file = log.file, append = TRUE)
     #     success <- "error"
     #   }
     #   if (success == "") {
@@ -450,11 +455,12 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     #     # run script to generate input files
     #     command <-
     #       paste(
-    #         docker run container-registry.phenomenal-h2020.eu/phnmnl/isa2w4m, " -i '", path, "'",
-    #         " -s '", sample.file, "'",
-    #         " -v '", variable.file, "'",
-    #         " -m '", matrix.file, "'",
-    #         " -f '", assay, "'",
+    #         "docker run --rm -v ", getwd(), "/", path, ":/isa_files/ container-registry.phenomenal-h2020.eu/phnmnl/isa2w4m",
+    #         " -i '/isa_files/'",
+    #         " -s '/isa_files/", sample.file, "'",
+    #         " -v '/isa_files/", variable.file, "'",
+    #         " -m '/isa_files/", matrix.file, "'",
+    #         " -f '/isa_files/", assay, "'",
     #         " -S '", real.factors[factor.index], "'",
     #         sep = ""
     #       )
@@ -463,7 +469,8 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     #     # check if successful
     #     # variable success contains empty string if
     #     if (!file.exists(sample.file) || !file.exists(variable.file) || !file.exists(matrix.file)) {
-    #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"Error 5: Problem when creating input files with isatab2w4m script\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
+    #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"Error 5: Problem when creating input files with isatab2w4m script\",", "\"", command, "\"", sep = ""),
+    #             file = log.file, append = TRUE)
     #       unlink(factor.folder, recursive = T)
     #       success <- "error"
     #     }
@@ -472,7 +479,9 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     #       factor.name <- get.factor.name(sample.file, factors[factor.index])
     #     }
     #     if (success != "" & length(factor.name) > 1) {
-    #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"", paste("Error 6: More than two matching columns found.", regex.column.name, sep = ""), "\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
+    #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"",
+    #                   paste("Error 6: More than two matching columns found.", regex.column.name, sep = ""), "\",", "\"", command, "\"", sep = ""),
+    #             file = log.file, append = TRUE)
     #       success <- "error"
     #     }
     #     # check for number classes
