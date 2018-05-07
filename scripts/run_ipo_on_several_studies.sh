@@ -20,7 +20,7 @@ PROG_NAME=$(basename $0)
 function print_help {
 	echo "Usage: $PROG_NAME [options]"
 	echo
-    echo "Repo: https://github.com/gabrielctn/phnmnl_IPO_workflow"
+    	echo "Repo: https://github.com/gabrielctn/phnmnl_IPO_workflow"
 	echo "Runs the IPO workflow held in PhenoMeNal over all Metabolights studies contained in the folder given in argument with wft4galaxy."
 	echo "The workflow consists in 2 steps:"
 	echo "1. Peakpicking"
@@ -28,7 +28,7 @@ function print_help {
 	echo
 	echo "Options:"
 	echo "   -h, --help                        Print this help message."
-    echo "   -r, --script      PATH            Path to 'run_ipo_workflow.R' script."
+    	echo "   -r, --script      PATH            Path to 'run_ipo_workflow.R' script."
 	echo "   -s, --studies     PATH            Path to the folder containing all the Metabolights studies (MTBLSXXX)."
 	echo "   -t, --template    PATH            Path to the galaxy workflow (.ga) template."
 	echo "   -o, --output      PATH            Path to the output folder, where results will be created."
@@ -54,7 +54,7 @@ function read_args {
 		shift_count=1
 		case $1 in
 			-h|--help)              print_help ; exit 0 ;;
-            -r|--script)            PATH_TO_SCRIPT="$2" ; shift_count=2 ;;
+            		-r|--script)            PATH_TO_SCRIPT="$2" ; shift_count=2 ;;
 			-s|--studies)           PATH_TO_STUDIES="$2" ; shift_count=2 ;;
 			-t|--template)          PATH_TO_GA_TEMPLATE="$2" ; shift_count=2 ;;
 			-o|--output)            PATH_TO_OUTPUT="$2" ; shift_count=2 ;;
