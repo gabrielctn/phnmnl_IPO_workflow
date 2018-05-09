@@ -281,7 +281,7 @@ run.wft4galaxy <- function(study.output.folder, assay, galaxy.key, galaxy.url) {
   working.folder <- getwd()
   # working.folder <- gsub("home", "hosthome", getwd())
   command <- paste(
-    "docker run -v ", current.folder, "/python/:/python -v ", working.folder, ":/data_input/ -v ", working.folder, ":/data_output/ ",
+    "docker run --rm -v ", current.folder, "/python/:/python -v ", working.folder, ":/data_input/ -v ", working.folder, ":/data_output/ ",
     "-e PYTHONPATH=/python -e GALAXY_URL=", galaxy.url, " -e GALAXY_API_KEY=", galaxy.key,
     " crs4/wft4galaxy:latest runtest ", debug, " --server ", galaxy.url, " --api-key ", galaxy.key, " -f /data_input/workflow.yaml ",
     logger, " -o /data_output/results ", " --disable-cleanup  --output-format text",
@@ -442,10 +442,10 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
       next
     }
     # Skip if the assay has raw files
-    if(grepl("^.*\\.raw[[:space:]]*$", data["assay.files"][[assay]][["Raw Spectral Data File"]], ignore.case = TRUE)){
+    if (grepl("^.*\\.raw[[:space:]]*$", data["assay.files"][[assay]][["Raw Spectral Data File"]], ignore.case = TRUE)) {
       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"\",", "\"",
-                  paste("Error 5: skipping ", assay, " assay, raw files are not treated", sep = ""), "\",", "\"", "", "\"",
-                  sep = ""
+        paste("Error 4: skipping ", assay, " assay, raw files are not treated", sep = ""), "\",", "\"", "", "\"",
+        sep = ""
       ),
       file = log.file, append = TRUE
       )
