@@ -130,9 +130,10 @@ output_folder: \"results\"
 # workflow tests
 workflows:
     ipo:
-        file: \"baseline_ipo.ga\"
+        file: \"ipo_workflow.ga\"
         inputs:
             \"input_ipo\": \"MZDATA\"
+            \"sampleMetadata\": \"sample-output.tsv\"
         expected:
             resultPeakpicking.RData: 
                 file: \"expected/resultPeakpicking.RData\"
@@ -148,7 +149,14 @@ workflows:
                 comparator: \"simple_comp.always_true_cmp\"
             ipo4xcmsSet.log.txt: 
                 file: \"expected/ipo4xcmsSet.log.txt\"
+                comparator: \"simple_comp.always_true_cmp\"
+            ipo4retcor.log.txt: 
+                file: \"expected/ipo4retcor.log.txt\"
+                comparator: \"simple_comp.always_true_cmp\"
+            IPO_parameters4retcorGroup.tsv: 
+                file: \"expected/IPO_parameters4retcorGroup.tsv\"
                 comparator: \"simple_comp.always_true_cmp\"", sep = "")
+
 
 
 # retrieve modified factor name
@@ -165,41 +173,39 @@ check.assay.file <- function(assay.file) {
   return(any(colnames(data) == "MS.Assay.Name"))
 }
 
-# function to check whether variable in sample file contains only 2 different values
-check.sample.file <- function(sample.file, factor.name) {
-  data <- read.table(sample.file, header = T)
-  if (dim(data)[1] == 0) {
-    return(paste("Error 6: Sample file data is empty: ", sample.file, sep = ""))
-  }
-  a <- c(length(unique(as.character(data[, factor.name]))))
-  data[, factor.name] <- as.character(paste("c_", data[, factor.name], sep = ""))
-  write.table(data, file = sample.file, col.names = T, row.names = F, sep = "\t")
-  if (length(a) == 0 || a != 2) {
-    return(paste("Error 7: Found class number unequal 2 for ", factor.name, " (", length(a), ")", sep = ""))
-  }
-  return("")
-}
-
-# function to check whether variable in matrix file contains NA's
-check.matrix.file <- function(matrix.file) {
-  data <- read.table(matrix.file, header = T, stringsAsFactors = F)
-  rownames(data) <- data[, 1]
-  data <- data[, c(-1)]
-  a <- sapply(1:dim(data)[2], function(x) {
-    if (!any(is.na(data[, x]))) {
-
-    }
-  })
-  write.table(data, file = matrix.file, col.names = T, row.names = T, sep = "\t")
-  return("")
-}
-
-# Function to build the study's assay folder(s) (zip) containing
+# Function to build the study's assay folder(s) containing 
 # QCs or pools if any (+blanks), or other mzfiles otherwise (5% but at least 10 mzfiles).
-prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, study.output.folder) {
+prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, study.output.folder, real.factors) {
   path.to.files <- paste(study.path, study.name, sep = "/")
   # get the mz files associated to the current assay
   files <- paste(path.to.files, data["assay.files"][[assay]][["Raw Spectral Data File"]], sep = "/")
+
+  # Link mz files to their factors in a matrix
+  # If there is a problem with factors, keep all files
+  if (length(which(real.factors == "-1")) == 0) {
+    factors.matrix <- sapply(data["factors"][[1]], function(x) cbind(as.matrix(x)))
+    # Check that a factor was attributed to each file, otherwise skip this step
+    if (length(as.matrix(data["assay.files"][[assay]][["Raw Spectral Data File"]])) == length(factors.matrix[, 1])) {
+      factors.mzfile.matrix <- cbind(factors.matrix[1:length(files), ], as.matrix(data["assay.files"][[assay]][["Raw Spectral Data File"]]))
+      # Keep at least 1 mzfile for each combination of factors (if several) or per factor (if no combination)
+      files.to.keep <- factors.mzfile.matrix[, ncol(factors.mzfile.matrix[!duplicated(factors.mzfile.matrix[, 1:length(real.factors)]), ])]
+    } else {
+      write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", "\",", "\"",
+        paste("Warning : Each mz file must have a factor attributed. mz files will be picked regardless of factors : ", sep = ""), "\",", "\"", "", "\"",
+        sep = ""
+      ),
+      file = log.file, append = TRUE
+      )
+    }
+  } else {
+    write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[which(real.factors == "-1")], "\",", "\"",
+      paste("Error : Did not find factor column in s_file: ", factors[which(real.factors == "-1")], sep = ""), "\",", "\"", "", "\"",
+      sep = ""
+    ),
+    file = log.file, append = TRUE
+    )
+  }
+
   # Some studies have zipped mz files
   if (unique(grepl("^.*(\\.gz|\\.tar|\\.zip)[[:space:]]*$", files))) {
     if (unique(tools::file_ext(files)) == "gz") {
@@ -234,13 +240,13 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
   }
   main.dir <- getwd()
   setwd(assay.folder)
-  assay.name <- gsub("\\.txt$", "", assay)
+  assay.zip.name <- gsub("\\.txt$", ".zip", gsub(" ", "_", assay))
   # Create zip file from the assay folder
-  if (!file.exists(paste0(assay.name, ".zip"))) {
-    zip(zipfile = assay.name, files = dir(full.names = TRUE))
+  if (!file.exists(assay.zip.name)) {
+    zip(zipfile = assay.zip.name, files = dir(full.names = TRUE))
   }
   setwd(main.dir)
-  return(paste0(assay.folder, "/", assay.name, ".zip"))
+  return(paste(assay.folder, assay.zip.name, sep = "/"))
 }
 
 
@@ -264,15 +270,13 @@ prepare.wft4galaxy.files <- function(path.to.zipfile, study.output.folder, assay
   file.create(paste(assay.folder, "expected/run_instrument_infos.tsv", sep = "/"))
   file.create(paste(assay.folder, "expected/ipo4xcmsSet.log.txt", sep = "/"))
   # ipo4retgroup results
-  # file.create(paste(assay.folder, "expected/IPO_parameters4retcorGroup.tsv", sep = "/"))
-  # file.create(paste(assay.folder, "expected/ipo4retcor.log.txt", sep = "/"))
+  file.create(paste(assay.folder, "expected/IPO_parameters4retcorGroup.tsv", sep = "/"))
+  file.create(paste(assay.folder, "expected/ipo4retcor.log.txt", sep = "/"))
   # copy
   file.copy(path.to.ga.template, assay.folder)
 }
 
-run.wft4galaxy <- function(study.output.folder, assay, galaxy.key, galaxy.url) {
-  assay.name <- gsub("\\.txt$", "", assay)
-  assay.folder <- paste(study.output.folder, assay.name, sep = "/")
+run.wft4galaxy <- function(assay.folder, galaxy.key, galaxy.url) {
   # FOR TESTING ON MINIKUBE: Because on kubernetes the path "home" is mounted as "hosthome" in the VM
   current.folder <- getwd()
   # current.folder <- gsub("home", "hosthome", getwd())
@@ -284,7 +288,7 @@ run.wft4galaxy <- function(study.output.folder, assay, galaxy.key, galaxy.url) {
     "docker run --rm -v ", current.folder, "/python/:/python -v ", working.folder, ":/data_input/ -v ", working.folder, ":/data_output/ ",
     "-e PYTHONPATH=/python -e GALAXY_URL=", galaxy.url, " -e GALAXY_API_KEY=", galaxy.key,
     " crs4/wft4galaxy:latest runtest ", debug, " --server ", galaxy.url, " --api-key ", galaxy.key, " -f /data_input/workflow.yaml ",
-    logger, " -o /data_output/results ", " --disable-cleanup  --output-format text",
+    logger, " -o /data_output/results --disable-cleanup --output-format text",
     sep = ""
   )
   system(command)
@@ -294,7 +298,7 @@ run.wft4galaxy <- function(study.output.folder, assay, galaxy.key, galaxy.url) {
 
 # check whether wft4galaxy run was successful
 # otherwise return the error message
-validate.wft4galaxy.run <- function(study.output.folder, galaxy.url) {
+validate.wft4galaxy.run <- function(study.output.folder, assay.folder, galaxy.url) {
   # get results folder
   result.folder.name <- paste(study.output.folder, "results", sep = "/")
   # search for log file
@@ -338,9 +342,9 @@ validate.wft4galaxy.run <- function(study.output.folder, galaxy.url) {
       }
     }
   }
-  result.files <- dir(paste(study.output.folder, "results", "ipo", sep = "/"))
-  if (length(result.files) != 5) {
-    return(paste("Error 11: Unknown error. Expected 5 output files in", paste(study.output.folder, "results", "ipo", sep = "/"), ". Found ", length(result.files)))
+  result.files <- dir(paste(assay.folder, "results", "ipo", sep = "/"))
+  if (length(result.files) != 7) {
+    return(paste("Error 11: Unknown error. Expected 7 output files in", paste(assay.folder, "results", "ipo", sep = "/"), ". Found ", length(result.files)))
   }
   return("")
 }
@@ -442,7 +446,7 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
       next
     }
     # Skip if the assay has raw files
-    if (grepl("^.*\\.raw[[:space:]]*$", data["assay.files"][[assay]][["Raw Spectral Data File"]], ignore.case = TRUE)) {
+    if (any(grepl("^.*\\.raw[[:space:]]*$", data["assay.files"][[assay]][["Raw Spectral Data File"]], ignore.case = TRUE) == TRUE)) {
       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"\",", "\"",
         paste("Error 4: skipping ", assay, " assay, raw files are not treated", sep = ""), "\",", "\"", "", "\"",
         sep = ""
@@ -451,82 +455,49 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
       )
       next
     }
-    assay.folder <- paste(study.output.folder, gsub("\\.txt$", "", assay), sep = "/")
+    assay.folder <- gsub(" ", "_", paste(study.output.folder, gsub("\\.txt$", "", assay), sep = "/"))
     dir.create(assay.folder)
 
-    # sapply(1:length(real.factors), function(factor.index) {
-    #   success <- ""
-    #   if (real.factors[factor.index] == "-1") {
-    #     write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"",
-    #                 paste("Error 4: Did not find column in s_file: ", factors[factor.index], sep = ""), "\",", "\"", "", "\"", sep = ""),
-    #           file = log.file, append = TRUE)
-    #     success <- "error"
-    #   }
-    #   if (success == "") {
-    #     factor.folder <- paste(assay.folder, gsub("\\/", "_", gsub("\\s+", "_", factors[factor.index])), sep = "/")
-    #     dir.create(factor.folder)
-    #     # define output files
-    #     sample.file <- paste(factor.folder, "sample-output.tsv", sep = "/")
-    #     variable.file <- paste(factor.folder, "variable-output.tsv", sep = "/")
-    #     matrix.file <- paste(factor.folder, "matrix-output.tsv", sep = "/")
-    #     # run script to generate input files
-    #     command <-
-    #       paste(
-    #         "docker run --rm -v ", getwd(), "/", path, ":/isa_files/ container-registry.phenomenal-h2020.eu/phnmnl/isa2w4m",
-    #         " -i '/isa_files/'",
-    #         " -s '/isa_files/", sample.file, "'",
-    #         " -v '/isa_files/", variable.file, "'",
-    #         " -m '/isa_files/", matrix.file, "'",
-    #         " -f '/isa_files/", assay, "'",
-    #         " -S '", real.factors[factor.index], "'",
-    #         sep = ""
-    #       )
-    #     # run the command
-    #     system(command)
-    #     # check if successful
-    #     # variable success contains empty string if
-    #     if (!file.exists(sample.file) || !file.exists(variable.file) || !file.exists(matrix.file)) {
-    #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"Error 5: Problem when creating input files with isatab2w4m script\",", "\"", command, "\"", sep = ""),
-    #             file = log.file, append = TRUE)
-    #       unlink(factor.folder, recursive = T)
-    #       success <- "error"
-    #     }
-    #     factor.name <- ""
-    #     if (success == "") {
-    #       factor.name <- get.factor.name(sample.file, factors[factor.index])
-    #     }
-    #     if (success != "" & length(factor.name) > 1) {
-    #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"",
-    #                   paste("Error 6: More than two matching columns found.", regex.column.name, sep = ""), "\",", "\"", command, "\"", sep = ""),
-    #             file = log.file, append = TRUE)
-    #       success <- "error"
-    #     }
-    #     # check for number classes
-    #     if (success == "") {
-    #       success <- check.sample.file(sample.file, factor.name)
-    #       if (success != "") {
-    #         write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"", success, "\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
-    #         unlink(factor.folder, recursive = T)
-    #       }
-    #     }
-    #     # prepare, run and validate wft4galaxy for ipo workflow
-    #     # if (success == "") {
-    path.to.zipfile <- prepare.mz.files(data, assay, assay.folder, study.path, study.name, study.output.folder)
+    # prepare wft4galaxy
+    path.to.zipfile <- prepare.mz.files(data, assay, assay.folder, study.path, study.name, study.output.folder, real.factors)
     prepare.wft4galaxy.files(path.to.zipfile, study.output.folder, assay.folder, wft4galaxy.template.yaml, path.to.ga.template)
-    run.wft4galaxy(study.output.folder, assay, galaxy.key, galaxy.url)
-    success <- validate.wft4galaxy.run(study.output.folder, galaxy.url)
-    #     #   if (success != "") {
-    #     #     write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"", success, "\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
-    #     #     # better to not delete the current folder as the wft4galaxy files might be interesting for further analysis
-    #     #     # unlink(factor.folder, recursive = T)
-    #     #   }
-    #     # }
-    #     # write positive feedback to log file
-    #     if (success == "") {
-    #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"OK!\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
-    #     }
-    #   }
-    # })
+    ### Create W4M files. We use only the sample file but all are kept
+    # define output files
+    sample.file <- paste(assay.folder, "sample-output.tsv", sep = "/")
+    variable.file <- paste(assay.folder, "variable-output.tsv", sep = "/")
+    matrix.file <- paste(assay.folder, "matrix-output.tsv", sep = "/")
+    path.to.isa <- paste(study.path, study.name, sep = "/")
+    # run script to generate input files
+    command <-
+      paste(
+        "docker run -v ", getwd(), "/:/isa_files/ container-registry.phenomenal-h2020.eu/phnmnl/isa2w4m",
+        " -i /isa_files/", path.to.isa,
+        " -s /isa_files/", sample.file,
+        " -v /isa_files/", variable.file,
+        " -m /isa_files/", matrix.file,
+        " -f '", assay, "'",
+        sep = ""
+      )
+    # run the command
+    system(command)
+    # check if successful
+    # variable success contains empty string if
+    if (!file.exists(sample.file) || !file.exists(variable.file) || !file.exists(matrix.file)) {
+      write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", "\",", "\"Error 5: Problem when creating input files with isatab2w4m script\",", "\"", command, "\"", sep = ""),
+        file = log.file, append = TRUE
+      )
+      unlink(assay.folder, recursive = T)
+      next
+    }
+    ######## Run the workflow ########
+    ##################################
+    run.wft4galaxy(assay.folder, galaxy.key, galaxy.url)
+    success <- validate.wft4galaxy.run(study.output.folder, assay.folder, galaxy.url)
+    if (success != "") {
+      write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", assay.folder, "\",", "\"", success, "\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
+      # better to not delete the current folder as the wft4galaxy files might be interesting for further analysis
+      # unlink(factor.folder, recursive = T)
+    }
     # remove assay folder if empty
     if (length(dir(assay.folder)) == 0) {
       if (delete.dirs) {
