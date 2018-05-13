@@ -125,7 +125,7 @@ library(R.utils)
 delete.dirs <- F
 
 # do not modify this unless you know what you are doing
-wft4galaxy.template.yaml <- paste("enable_logger: True
+wft4galaxy.template.yaml <- paste("enable_logger: False
 output_folder: \"results\"
 # workflow tests
 workflows:
@@ -134,17 +134,20 @@ workflows:
         inputs:
             \"input_ipo\": \"MZDATA\"
         expected:
-            resultPeakpicking: 
-                file: \"expected/resultPeakpicking.rdata\"
+            resultPeakpicking.RData: 
+                file: \"expected/resultPeakpicking.RData\"
                 comparator: \"simple_comp.always_true_cmp\"
-            parametersOutput: 
-                file: \"expected/parametersOutput.tabular\"
+            best_xcmsSet.RData: 
+                file: \"expected/best_xcmsSet.RData\"
                 comparator: \"simple_comp.always_true_cmp\"
-            run_instrument_infos: 
-                file: \"expected/run_instrument_infos.tabular\"
+            IPO_parameters4xcmsSet.tsv: 
+                file: \"expected/IPO_parameters4xcmsSet.tsv\"
                 comparator: \"simple_comp.always_true_cmp\"
-            log: 
-                file: \"expected/log.txt\"
+            run_instrument_infos.tsv: 
+                file: \"expected/run_instrument_infos.tsv\"
+                comparator: \"simple_comp.always_true_cmp\"
+            ipo4xcmsSet.log.txt: 
+                file: \"expected/ipo4xcmsSet.log.txt\"
                 comparator: \"simple_comp.always_true_cmp\"", sep = "")
 
 
@@ -220,7 +223,7 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
       file.copy(blank.files, assay.folder)
     }
   } else {
-    # To reduce processing time, keep 5% but at least 10 raw data files of the assay ()
+    # To reduce processing time, keep 5% but at least 10 raw data files of the assay
     if (length(files) < 10) {
       file.copy(files, assay.folder)
     } else if (ceiling((5 * length(files)) / 100) < 10) {
@@ -230,14 +233,14 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
     }
   }
   main.dir <- getwd()
-  setwd(study.output.folder)
+  setwd(assay.folder)
   assay.name <- gsub("\\.txt$", "", assay)
   # Create zip file from the assay folder
   if (!file.exists(paste0(assay.name, ".zip"))) {
-    zip(zipfile = assay.name, files = dir(assay.name, full.names = TRUE))
+    zip(zipfile = assay.name, files = dir(full.names = TRUE))
   }
   setwd(main.dir)
-  return(paste0(study.output.folder, "/", assay.name, ".zip"))
+  return(paste0(assay.folder, "/", assay.name, ".zip"))
 }
 
 
@@ -252,7 +255,7 @@ prepare.wft4galaxy.files <- function(path.to.zipfile, study.output.folder, assay
   # prepare and write yaml file
   wft4galaxy.template.yaml.tmp <- gsub("MZDATA", basename(path.to.zipfile), wft4galaxy.template.yaml)
   # write yaml file
-  write(wft4galaxy.template.yaml.tmp, file = paste(study.output.folder, "workflow.yaml", sep = "/"))
+  write(wft4galaxy.template.yaml.tmp, file = paste(assay.folder, "workflow.yaml", sep = "/"))
   # create expected results
   # ipo4xcmsSet results
   file.create(paste(assay.folder, "expected/resultPeakpicking.RData", sep = "/"))
@@ -264,23 +267,24 @@ prepare.wft4galaxy.files <- function(path.to.zipfile, study.output.folder, assay
   # file.create(paste(assay.folder, "expected/IPO_parameters4retcorGroup.tsv", sep = "/"))
   # file.create(paste(assay.folder, "expected/ipo4retcor.log.txt", sep = "/"))
   # copy
-  file.copy(path.to.ga.template, paste(study.output.folder, sep = "/"))
+  file.copy(path.to.ga.template, assay.folder)
 }
 
 run.wft4galaxy <- function(study.output.folder, assay, galaxy.key, galaxy.url) {
   assay.name <- gsub("\\.txt$", "", assay)
+  assay.folder <- paste(study.output.folder, assay.name, sep = "/")
   # FOR TESTING ON MINIKUBE: Because on kubernetes the path "home" is mounted as "hosthome" in the VM
   current.folder <- getwd()
   # current.folder <- gsub("home", "hosthome", getwd())
-  setwd(study.output.folder)
+  setwd(assay.folder)
   # FOR TESTING ON MINIKUBE: Because on kubernetes the path "home" is mounted as "hosthome" in the VM
   working.folder <- getwd()
   # working.folder <- gsub("home", "hosthome", getwd())
   command <- paste(
     "docker run --rm -v ", current.folder, "/python/:/python -v ", working.folder, ":/data_input/ -v ", working.folder, ":/data_output/ ",
-    "-e PYTHONPATH=/python -e GALAXY_URL=", galaxy.url, " -e GALAXY_API_KEY=", galaxy.key, " ",
-    "crs4/wft4galaxy:latest runtest ", debug, " --server ", galaxy.url, " --api-key ", galaxy.key, " -f /data_input/workflow.yaml ",
-    "-o /data_output/", assay.name, "/results ", logger, " --disable-cleanup",
+    "-e PYTHONPATH=/python -e GALAXY_URL=", galaxy.url, " -e GALAXY_API_KEY=", galaxy.key,
+    " crs4/wft4galaxy:latest runtest ", debug, " --server ", galaxy.url, " --api-key ", galaxy.key, " -f /data_input/workflow.yaml ",
+    logger, " -o /data_output/results ", " --disable-cleanup  --output-format text",
     sep = ""
   )
   system(command)
@@ -430,8 +434,21 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     is.valid.ms <- check.assay.file(paste(path, assay, sep = "/"))
     if (!is.valid.ms) {
       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"\",", "\"",
-                  paste("Error 4: ", assay, " is no MS study.", sep = ""), "\",", "\"", "", "\"", sep = ""),
-            file = log.file, append = TRUE)
+        paste("Error 4: ", assay, " is no MS study.", sep = ""), "\",", "\"", "", "\"",
+        sep = ""
+      ),
+      file = log.file, append = TRUE
+      )
+      next
+    }
+    # Skip if the assay has raw files
+    if (grepl("^.*\\.raw[[:space:]]*$", data["assay.files"][[assay]][["Raw Spectral Data File"]], ignore.case = TRUE)) {
+      write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"\",", "\"",
+        paste("Error 4: skipping ", assay, " assay, raw files are not treated", sep = ""), "\",", "\"", "", "\"",
+        sep = ""
+      ),
+      file = log.file, append = TRUE
+      )
       next
     }
     assay.folder <- paste(study.output.folder, gsub("\\.txt$", "", assay), sep = "/")
@@ -441,7 +458,7 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     #   success <- ""
     #   if (real.factors[factor.index] == "-1") {
     #     write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"",
-    #                 paste("Error 4: Did not find column in s_file: ", factors[factor.index], sep = ""), "\",", "\"", "", "\"", sep = ""), 
+    #                 paste("Error 4: Did not find column in s_file: ", factors[factor.index], sep = ""), "\",", "\"", "", "\"", sep = ""),
     #           file = log.file, append = TRUE)
     #     success <- "error"
     #   }
@@ -493,17 +510,17 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     #       }
     #     }
     #     # prepare, run and validate wft4galaxy for ipo workflow
-    #     if (success == "") {
-          path.to.zipfile <- prepare.mz.files(data, assay, assay.folder, study.path, study.name, study.output.folder)
-          prepare.wft4galaxy.files(path.to.zipfile, study.output.folder, assay.folder, wft4galaxy.template.yaml, path.to.ga.template)
-          run.wft4galaxy(study.output.folder, assay, galaxy.key, galaxy.url)
-          success <- validate.wft4galaxy.run(study.output.folder, galaxy.url)
-    #       if (success != "") {
-    #         write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"", success, "\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
-    #         # better to not delete the current folder as the wft4galaxy files might be interesting for further analysis
-    #         # unlink(factor.folder, recursive = T)
-    #       }
-    #     }
+    #     # if (success == "") {
+    path.to.zipfile <- prepare.mz.files(data, assay, assay.folder, study.path, study.name, study.output.folder)
+    prepare.wft4galaxy.files(path.to.zipfile, study.output.folder, assay.folder, wft4galaxy.template.yaml, path.to.ga.template)
+    run.wft4galaxy(study.output.folder, assay, galaxy.key, galaxy.url)
+    success <- validate.wft4galaxy.run(study.output.folder, galaxy.url)
+    #     #   if (success != "") {
+    #     #     write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"", success, "\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
+    #     #     # better to not delete the current folder as the wft4galaxy files might be interesting for further analysis
+    #     #     # unlink(factor.folder, recursive = T)
+    #     #   }
+    #     # }
     #     # write positive feedback to log file
     #     if (success == "") {
     #       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"OK!\",", "\"", command, "\"", sep = ""), file = log.file, append = TRUE)
