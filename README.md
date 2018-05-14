@@ -105,4 +105,29 @@ Options:
 
 ```
 
+## Output  
+
+Since the purpose of this script is to run the workflow on different studies, outputs will not follow a specific template. That is why the API does not compare the resulting files with the "expected" ones.
+```
+----------------------------------------------------------------------
+Ran 1 test in 1600.722s
+
+OK
+2018-05-12 19:30:31,667 [wft4galaxy.app.runner] [DEBUG]  wft4galaxy.run_tests exiting with code: 0
+```
+
+The results will appear in the registered histories on Galaxy (browser) and on the "results" folder locally, in the folder "output".  
+Example with MTBLS217:  
+```
+# assay NEG
+$ ls output/MTBLS117/a_mtbls117_DIMS_NEG_mass_spectrometry/results/ipo/
+best_xcmsSet.RData  ipo4xcmsSet.log.txt             IPO_parameters4xcmsSet.tsv  run_instrument_infos.tsv
+ipo4retcor.log.txt  IPO_parameters4retcorGroup.tsv  resultPeakpicking.RData
+# assay POS
+$ ls output/MTBLS117/a_mtbls117_DIMS_POS_mass_spectrometry/results/ipo/
+best_xcmsSet.RData  ipo4xcmsSet.log.txt             IPO_parameters4xcmsSet.tsv  run_instrument_infos.tsv
+ipo4retcor.log.txt  IPO_parameters4retcorGroup.tsv  resultPeakpicking.RData
+
+```
+
 
