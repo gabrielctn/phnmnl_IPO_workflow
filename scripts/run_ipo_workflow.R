@@ -198,8 +198,8 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
       )
     }
   } else {
-    write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[which(real.factors == "-1")], "\",", "\"",
-      paste("Error : Did not find factor column in s_file: ", factors[which(real.factors == "-1")], sep = ""), "\",", "\"", "", "\"",
+    write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", "\",", "\"",
+      paste("Error : Did not find factor column in s_file: ", sep = ""), "\",", "\"", "", "\"",
       sep = ""
     ),
     file = log.file, append = TRUE
@@ -383,7 +383,7 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
   })
   s_files <- unlist(s_files)
   if (length(s_files) > 1) {
-    write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", factors[factor.index], "\",", "\"", paste("Error 2: More than one s_file found", sep = ""), "\",", "\"", "", "\"", sep = ""), file = log.file, append = TRUE)
+    write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", "\",", "\"", paste("Error 2: More than one s_file found", sep = ""), "\",", "\"", "", "\"", sep = ""), file = log.file, append = TRUE)
     return()
   }
 
@@ -400,6 +400,7 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     write(paste("\"", study.name, "\",", "\"\",", "\"\",", "\"", paste("Error 2: No factors found in investigation file.", sep = ""), "\",", "\"", "", "\"", sep = ""), file = log.file, append = TRUE)
     # return()
   }
+  
   # get assays
   assays <- list()
   a <- sapply(attributes(data)[["investigation.file"]][assay.file.name.index, -1], function(x) {
@@ -413,7 +414,6 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
   # get real factor names
   s_file_data <- read.csv(paste(path, s_files[1], sep = "/"), sep = "\t", check.names = F)
   real.factors.index <- sapply(factors, function(x) grep(paste("\\[", x, "\\]", sep = ""), colnames(s_file_data)))
-
   real.factors <- list()
   a <- sapply(real.factors.index, function(x) {
     # if not found in the s file
