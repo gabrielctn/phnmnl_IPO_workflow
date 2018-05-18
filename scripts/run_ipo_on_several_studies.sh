@@ -95,12 +95,11 @@ do
   fi
   # Download the full study into ./studies if it doesn't exist already and if output is not already present
   echo "Downloading the full $study study..."
-  if [ -d "./studies/$study" ]
-  then
+  if [ -d "./studies/$study" ]; then
     echo "$study already present, skip download, now processing..."
-  elif [ -d "./output/$study" ]
-  then
+  elif [ -d "./output/$study" ]; then
     echo "The study $study has already an output folder. Skipping to the next one..."
+    continue
   else
     docker run -v $PWD/studies/:/studies container-registry.phenomenal-h2020.eu/phnmnl/mtbls-dwnld -a -q -o /studies $study
   fi
