@@ -173,7 +173,7 @@ check.assay.file <- function(assay.file) {
   return(any(colnames(data) == "MS.Assay.Name"))
 }
 
-# Function to build the study's assay folder(s) containing 
+# Function to build the study's assay folder(s) containing
 # QCs or pools if any (+blanks), or other mzfiles otherwise (5% but at least 10 mzfiles).
 prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, study.output.folder, real.factors) {
   path.to.files <- paste(study.path, study.name, sep = "/")
@@ -189,6 +189,7 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
       factors.mzfile.matrix <- cbind(factors.matrix[1:length(files), ], as.matrix(data["assay.files"][[assay]][["Raw Spectral Data File"]]))
       # Keep at least 1 mzfile for each combination of factors (if several) or per factor (if no combination)
       files.to.keep <- factors.mzfile.matrix[, ncol(factors.mzfile.matrix[!duplicated(factors.mzfile.matrix[, 1:length(real.factors)]), ])]
+      files.to.keep <- paste(path.to.files, files.to.keep, sep = "/")
     } else {
       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", "\",", "\"",
         paste("Warning : Each mz file must have a factor attributed. mz files will be picked regardless of factors : ", sep = ""), "\",", "\"", "", "\"",
@@ -207,22 +208,22 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
   }
 
   # Some studies have zipped mz files
-  if (unique(grepl("^.*(\\.gz|\\.tar|\\.zip)[[:space:]]*$", files))) {
-    if (unique(tools::file_ext(files)) == "gz") {
-      sapply(files, function(x) gunzip(filename = x))
-    } else if (unique(tools::file_ext(files)) == "tar") {
-      sapply(files, untar(exdir = path.to.files))
-    } else if (unique(tools::file_ext(files)) == "zip") {
-      sapply(files, unzip(exdir = path.to.files))
+  if (unique(grepl("^.*(\\.gz|\\.tar|\\.zip)[[:space:]]*$", files.to.keep))) {
+    if (unique(tools::file_ext(files.to.keep)) == "gz") {
+      sapply(files.to.keep, function(x) gunzip(filename = x))
+    } else if (unique(tools::file_ext(files.to.keep)) == "tar") {
+      sapply(files.to.keep, untar(exdir = path.to.files))
+    } else if (unique(tools::file_ext(files.to.keep)) == "zip") {
+      sapply(files.to.keep, unzip(exdir = path.to.files))
     }
-    files <- gsub(".gz", "", files)
+    files.to.keep <- gsub(".gz", "", files.to.keep)
   }
   # Check if there are blank files
   # TODO Change the method retrieving blank samples, with a more "official way" then "grep"
   #      - To improve in the future, when new specifications of ISA-Tab make it easier to detect blanks
-  blank.files <- grep("blan(k|c)", files, ignore.case = TRUE, value = TRUE)
+  blank.files <- grep("blan(k|c)", files.to.keep, ignore.case = TRUE, value = TRUE)
   # Keep only QCs and/or pool files if possible since they are more representative of the experimental study
-  representative.files <- grep("(QC)|(pool)", files, ignore.case = TRUE, value = TRUE)
+  representative.files <- grep("(QC)|(pool)", files.to.keep, ignore.case = TRUE, value = TRUE)
   if (length(representative.files) != 0) { # If pools or QC, keep only them
     file.copy(representative.files, assay.folder)
     if (length(blank.files) != 0) { # Keep also blanks if there are
@@ -230,12 +231,12 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
     }
   } else {
     # To reduce processing time, keep 5% but at least 10 raw data files of the assay
-    if (length(files) < 10) {
-      file.copy(files, assay.folder)
-    } else if (ceiling((5 * length(files)) / 100) < 10) {
-      file.copy(sample(files, 10), assay.folder)
+    if (length(files.to.keep) < 10) {
+      file.copy(files.to.keep, assay.folder)
+    } else if (ceiling((5 * length(files.to.keep)) / 100) < 10) {
+      file.copy(sample(files.to.keep, 10), assay.folder)
     } else {
-      file.copy(sample(files, ceiling((5 * length(files)) / 100)), assay.folder)
+      file.copy(sample(files.to.keep, ceiling((5 * length(files.to.keep)) / 100)), assay.folder)
     }
   }
   main.dir <- getwd()
@@ -243,7 +244,8 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
   assay.zip.name <- gsub("\\.txt$", ".zip", gsub(" ", "_", assay))
   # Create zip file from the assay folder
   if (!file.exists(assay.zip.name)) {
-    zip(zipfile = assay.zip.name, files = dir(full.names = TRUE))
+    files <- intersect(basename(files.to.keep), basename(dir(full.names = TRUE)))
+    zip(zipfile = assay.zip.name, files = files)
   }
   setwd(main.dir)
   return(paste(assay.folder, assay.zip.name, sep = "/"))
