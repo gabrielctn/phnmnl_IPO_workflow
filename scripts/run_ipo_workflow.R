@@ -179,6 +179,7 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
   path.to.files <- paste(study.path, study.name, sep = "/")
   # get the mz files associated to the current assay
   files <- paste(path.to.files, data["assay.files"][[assay]][["Raw Spectral Data File"]], sep = "/")
+  files.to.keep <- NULL
 
   # Link mz files to their factors in a matrix
   # If there is a problem with factors, keep all files
@@ -197,6 +198,7 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
       ),
       file = log.file, append = TRUE
       )
+      files.to.keep <- files
     }
   } else {
     write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", "\",", "\"",
@@ -205,8 +207,8 @@ prepare.mz.files <- function(data, assay, assay.folder, study.path, study.name, 
     ),
     file = log.file, append = TRUE
     )
+    files.to.keep <- files
   }
-
   # Some studies have zipped mz files
   if (unique(grepl("^.*(\\.gz|\\.tar|\\.zip)[[:space:]]*$", files.to.keep))) {
     if (unique(tools::file_ext(files.to.keep)) == "gz") {
