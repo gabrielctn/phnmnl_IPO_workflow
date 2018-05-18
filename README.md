@@ -13,10 +13,11 @@ This script processes all assays separately and picks mz files within assays acc
   - Install isa2w4m container from PhenoMeNal (Convert ISA-tab into 3 files: sample metadata, variable metadata, sample x         variable matrix)  
     `$ docker pull container-registry.phenomenal-h2020.eu/phnmnl/isa2w4m`  
 
-  - (optionnal) You can install the Metabolights Downloader container from PhenoMeNal (Pierrick Roger - CEA)  
+  - (**optionnal**) You can install the Metabolights Downloader container from PhenoMeNal (Pierrick Roger - CEA)  
     `$ docker pull container-registry.phenomenal-h2020.eu/phnmnl/mtbls-dwnld`  
     to download a Metabolights study:  
     `$ docker run -v /home/user/workdir/studies/:/studies container-registry.phenomenal-h2020.eu/phnmnl/mtbls-dwnld -a -o /studies MTBLS213`  
+    **This step is done automatically if you run the workflow on several studies. See the section at the end**
 
 + The R packages Risa and R.utils need to be installed.  
   - ```R
@@ -79,15 +80,16 @@ Run the script without any argument to display help message.
 ```
 
 ## Run the workflow on several Metabolights studies  
+
 Same requirements as described previously.  
-This script simply runs the script described above (run_ipo_workflow.R) over several Metabolights studies contained in a given folder ("studies" for example).
+This script simply runs the script described above (run_ipo_workflow.R) over all the Metabolights studies mentioned in a given folder ("studies" for example).
 
 ### Usage  
 ```
 Usage: run_ipo_on_several_studies.sh [options]
 
 Repo: https://github.com/gabrielctn/phnmnl_IPO_workflow
-Runs the IPO workflow held in PhenoMeNal over all Metabolights studies contained in the folder given in argument with wft4galaxy.
+Runs the IPO workflow held in PhenoMeNal over all Metabolights studies mentionned in the text file given in argument with wft4galaxy.
 The workflow consists in 2 steps:
 1. Peakpicking
 2. Grouping and retention time correction
@@ -95,7 +97,7 @@ The workflow consists in 2 steps:
 Options:
    -h, --help                        Print this help message.
    -r, --script      PATH            Path to 'run_ipo_workflow.R' script.
-   -s, --studies     PATH            Path to the folder containing all the Metabolights studies (MTBLSXXX).
+   -s, --studies     PATH            Path to the text file containing all the Metabolights studies. 1 line = 1 MTBLSXXX.
    -t, --template    PATH            Path to the galaxy workflow (.ga) template.
    -o, --output      PATH            Path to the output folder, where results will be created.
    -u, --galaxyurl   URL             The URL for the Galaxy server. For example: http://192.168.99.100:30700/
