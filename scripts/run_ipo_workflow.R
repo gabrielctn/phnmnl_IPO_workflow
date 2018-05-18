@@ -312,7 +312,7 @@ validate.wft4galaxy.run <- function(study.output.folder, assay.folder, galaxy.ur
       run.id <- gsub("\\s.*", "", gsub(".*Runtime error:\\s*", "", lines[error.indexes[1]]))
       download.result <- paste(study.output.folder, "results", run.id, sep = "/")
       url <- paste(galaxy.url, "/dataset/errors?id=", run.id, sep = "")
-      download.file(url, download.result, quiet = T)
+      download.file(url, download.result, quiet = TRUE)
       if (file.exists(download.result)) {
         lines <- readLines(download.result)
         # search for error messages
@@ -400,7 +400,7 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     write(paste("\"", study.name, "\",", "\"\",", "\"\",", "\"", paste("Error 2: No factors found in investigation file.", sep = ""), "\",", "\"", "", "\"", sep = ""), file = log.file, append = TRUE)
     # return()
   }
-  
+
   # get assays
   assays <- list()
   a <- sapply(attributes(data)[["investigation.file"]][assay.file.name.index, -1], function(x) {
@@ -429,7 +429,7 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
   study.output.folder <- paste(output, study.name, sep = "/")
   # remove if the current study folder already exists
   if (dir.exists(study.output.folder)) {
-    unlink(study.output.folder, recursive = T)
+    unlink(study.output.folder, recursive = TRUE)
   }
   # create study folder for the current MTBLS study
   dir.create(study.output.folder)
@@ -455,12 +455,17 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
       )
       next
     }
+    if(any(grepl("FALSE", file.exists(paste(path, data["assay.files"][[assay]][["Raw Spectral Data File"]], sep = "/"))) == TRUE)){
+      write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"\",", "\"",
+        paste("Error 4: skipping ", assay, " assay, no ms files found for this assay", sep = ""), "\",", "\"", "", "\"",
+        sep = ""
+      ),
+      file = log.file, append = TRUE
+      )
+      next
+    }
     assay.folder <- gsub(" ", "_", paste(study.output.folder, gsub("\\.txt$", "", assay), sep = "/"))
     dir.create(assay.folder)
-
-    # prepare wft4galaxy
-    path.to.zipfile <- prepare.mz.files(data, assay, assay.folder, study.path, study.name, study.output.folder, real.factors)
-    prepare.wft4galaxy.files(path.to.zipfile, study.output.folder, assay.folder, wft4galaxy.template.yaml, path.to.ga.template)
     ### Create W4M files. We use only the sample file but all are kept
     # define output files
     sample.file <- paste(assay.folder, "sample-output.tsv", sep = "/")
@@ -484,11 +489,14 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     # variable success contains empty string if
     if (!file.exists(sample.file) || !file.exists(variable.file) || !file.exists(matrix.file)) {
       write(paste("\"", study.name, "\",", "\"", assay, "\",", "\"", "\",", "\"Error 5: Problem when creating input files with isatab2w4m script\",", "\"", command, "\"", sep = ""),
-        file = log.file, append = TRUE
+            file = log.file, append = TRUE
       )
-      unlink(assay.folder, recursive = T)
+      unlink(assay.folder, recursive = TRUE)
       next
     }
+    # prepare wft4galaxy
+    path.to.zipfile <- prepare.mz.files(data, assay, assay.folder, study.path, study.name, study.output.folder, real.factors)
+    prepare.wft4galaxy.files(path.to.zipfile, study.output.folder, assay.folder, wft4galaxy.template.yaml, path.to.ga.template)
     ######## Run the workflow ########
     ##################################
     run.wft4galaxy(assay.folder, galaxy.key, galaxy.url)
@@ -501,14 +509,16 @@ main <- function(study.name, log.file, study.path, wft4galaxy.template.yaml, pat
     # remove assay folder if empty
     if (length(dir(assay.folder)) == 0) {
       if (delete.dirs) {
-        unlink(assay.folder, recursive = T)
+        unlink(assay.folder, recursive = TRUE)
       }
+    } else { # Delete heavy zip file. The names of files used for processing are written in output files anyway
+      unlink(path.to.zipfile, force = TRUE)
     }
   }
   # remove study folder if empty
   if (length(dir(study.output.folder)) == 0) {
     if (delete.dirs) {
-      unlink(study.output.folder, recursive = T)
+      unlink(study.output.folder, recursive = TRUE)
     }
   }
 }
