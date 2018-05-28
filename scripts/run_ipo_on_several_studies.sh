@@ -91,25 +91,29 @@ do
   # Check if 1 line = 1 word
   if [ $(echo $study | wc -w) -ne 1 ]; then
     echo "Error: there should be only one word per line: MTBLSXXX"
-    continue
+    exit 0
   fi
-  # Download the full study into ./studies if it doesn't exist already and if output is not already present
+  # If output is not already present, download the full study into ./studies if it doesn't exist already
   if [ -d "./output/$study" ]; then
     echo "The study $study has already an output folder. Skipping to the next one..."
     continue
-  fi
-  echo "Downloading the full $study study..."
-  if [ -d "./studies/$study" ]; then
-    echo "$study already present, skip download, now processing..."
   else
-    docker run -v $PWD/studies/:/studies container-registry.phenomenal-h2020.eu/phnmnl/mtbls-dwnld -a -q -o /studies $study
-  fi
-  # Check if present, and run the script
-  if [ ! -d "./studies/$study" ]; then
-    echo "A problem occured while downloading $study study. Skipping to the next one..."
-    continue
-  fi
-	scripts/run_ipo_workflow.R study_path="studies" study_name=$study ga_file_template=$PATH_TO_GA_TEMPLATE output_path=$PATH_TO_OUTPUT log_file="$study$LOG_FILE" galaxy_url=$GALAXY_URL galaxy_key=$GALAXY_API_KEY debug=$DEBUG logger=$LOGGER
+    echo "Downloading the full $study study..."
+    if [ -d "./studies/$study" ]; then
+      echo "$study already present, skip download, now processing..."
+    else
+      sudo docker run --rm -v $PWD/studies/:/studies/ container-registry.phenomenal-h2020.eu/phnmnl/mtbls-dwnld -a -q -o /studies $study
+    fi
+    # Check if present, and run the script
+    if [ ! -d "./studies/$study" ]; then
+      echo "A problem occured while downloading $study study. Skipping to the next one..."
+      continue
+    fi
+    #echo "Start: $(date "+%Y-%m-%d %H:%M:%S: $study")" >> runtime.log.txt
+    echo -e "$study\n" >> runtime.log.txt
+    /usr/bin/time -o runtime.log.txt -a -f "\t%E Elapsed Real Time\n" scripts/run_ipo_workflow.R study_path="studies" study_name=$study ga_file_template=$PATH_TO_GA_TEMPLATE output_path=$PATH_TO_OUTPUT log_file="$study$LOG_FILE" galaxy_url=$GALAXY_URL galaxy_key=$GALAXY_API_KEY debug=$DEBUG logger=$LOGGER
+    #echo "End: $(date "+%Y-%m-%d %H:%M:%S: $study")" >> runtime.log.txt
+    fi
 done < "$FILE"
 
 echo "No more studies to process. Ending this script."
