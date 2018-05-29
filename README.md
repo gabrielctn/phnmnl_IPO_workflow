@@ -3,7 +3,10 @@ Optimize XCMS analytical parameters by running IPO workflow (Peak picking + Rete
 
 ## Description
 Runs the IPO tool that includes as a 2 steps workflow the peak picking step first and then retention time correction and peak grouping optimization steps together, using wft4galaxy api. The workflow can process one (scripts/run_ipo_workflow.R) or several (scripts/run_ipo_on_several_studies.sh) Metabolights studies (http://www.ebi.ac.uk/metabolights/) using wft4galaxy (http://wft4galaxy.readthedocs.io) as an API accessing a Galaxy instance with an installed PhenoMeNal e-infrastructure.
-This script processes all assays separately and picks mz files within assays according to their respective factors found in the investigation file of the given study, in order to represent all combinations of factors that exist. Otherwise it randomly picks 5% but at least 10 files to save processing time.
+This script processes all assays separately. It picks 5% but at least 10 data files to save processing time.
+For the grouping step, the sample metadata file is necessary in order to take into account the experimental design factors. They are integrated into the best xcmsSet R object resulting from the peak picking step.  
+
+\*\***Important**\*\*: The workflow consists in optimizing a subset of parameters at once only, to reduce computation time. You need to download the workflow optimizing the parameters of your choice from Galaxy (into a .ga file). The workflow present in template/ipo_workflow_peakwidth_bw.ga
 
 ## Requirements
 + Docker  
@@ -42,8 +45,7 @@ work_dir
     |      |_ MTBLS213  
     |      |_ ...  
     |_ template  
-    |      |_ baseline_ipo.ga  
-    |      |_ ipo_workflow.ga  
+    |      |_ ipo_workflow_peakwidth_bw.ga  
     |_ python  
     |      |_ simple_comp.py  
     |_ scripts   
@@ -52,13 +54,14 @@ work_dir
 ```
 
 
-## Usage
+## Usage  
+
 Run the script without any argument to display help message.  
 `./run_ipo_workflow.r`  
 **Arguments**  
 **study_path** - Local path containing the MTBLS study  
 **study_name** - Name of the study to be processed (e.g. MTBLS433)  
-**ga_file_template** - Galaxy workflow file (.ga) for the statistical workflow  
+**ga_file_template** - Galaxy workflow file (.ga) for the IPO workflow  
 **output_path** - Local path used to store the result files   
 **log_file** - Path to csv file used for log messages  
 **galaxy_url** - URL to Galaxy server on which to run the workflow  
@@ -68,11 +71,12 @@ Run the script without any argument to display help message.
 
 
 ## Example  
+
 ```bash
 ./run_ipo_workflow.r
       study_path="studies"
       study_name="MTBLS213"
-      ga_file_template="template/ipo_workflow.ga"
+      ga_file_template="template/ipo_workflow_peakwidth_bw.ga"
       output_path="output"
       log_file="MTBLS213_logs.csv"
       galaxy_url="http://192.168.99.100:30700"
@@ -82,7 +86,7 @@ Run the script without any argument to display help message.
 ## Run the workflow on several Metabolights studies  
 
 Same requirements as described previously.  
-This script simply runs the script described above (run_ipo_workflow.R) over all the Metabolights studies mentioned in a given folder ("studies" for example).
+This script runs the script described above (run_ipo_workflow.R) over all the Metabolights studies mentioned in a given folder ("studies" for example). The difference lies in the fact that the studies are downloaded automatically, only the Metabolights ID in a simple text file are required.
 
 ### Usage  
 ```
