@@ -111,8 +111,10 @@ do
     fi
     #echo "Start: $(date "+%Y-%m-%d %H:%M:%S: $study")" >> runtime.log.txt
     echo -e "$study\n" >> runtime.log.txt
+    # Run the script and generate run time log file
     /usr/bin/time -o runtime.log.txt -a -f "\t%E Elapsed Real Time\n" scripts/run_ipo_workflow.R study_path="studies" study_name=$study ga_file_template=$PATH_TO_GA_TEMPLATE output_path=$PATH_TO_OUTPUT log_file="$study$LOG_FILE" galaxy_url=$GALAXY_URL galaxy_key=$GALAXY_API_KEY debug=$DEBUG logger=$LOGGER
     #echo "End: $(date "+%Y-%m-%d %H:%M:%S: $study")" >> runtime.log.txt
+    rm -rf "studies/$study"
     fi
 done < "$FILE"
 
